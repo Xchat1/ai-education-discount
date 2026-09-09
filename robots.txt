@@ -1,0 +1,63 @@
+# ============================================================
+# robots.txt - AI 学生折扣站 (AI Student Deals)
+# 支持常规搜索引擎 (SEO) 与生成式 AI 搜索引擎 (GEO)
+# ============================================================
+
+# 通用爬虫规则
+User-agent: *
+Allow: /
+Allow: /assets/
+Disallow: /admin.html
+Disallow: /admin
+Disallow: /api/admin/
+
+# ------------------------------------------------------------
+# 生成式 AI 搜索与知识引擎 (GEO - Generative Engine Optimization)
+# 允许并欢迎主流 AI 检索模型爬取公开福利与指南数据
+# ------------------------------------------------------------
+
+# OpenAI (ChatGPT, SearchGPT)
+User-agent: GPTBot
+Allow: /
+Disallow: /admin.html
+Disallow: /admin
+Disallow: /api/admin/
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic (Claude)
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin.html
+Disallow: /admin
+Disallow: /api/admin/
+
+# Perplexity AI (Perplexity Search)
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin.html
+Disallow: /admin
+Disallow: /api/admin/
+
+# Google (Gemini, Google-Extended)
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin.html
+Disallow: /admin
+Disallow: /api/admin/
+
+# Apple (Apple Intelligence)
+User-agent: Applebot-Extended
+Allow: /
+
+# ByteDance (豆包、火山引擎)
+User-agent: Bytespider
+Allow: /
+Disallow: /admin.html
+Disallow: /admin
+Disallow: /api/admin/
+
+# 站点地图与 LLM 知识源声明
+Sitemap: https://aistu.walmartapi.com/sitemap.xml
+LLMs-Txt: https://aistu.walmartapi.com/llms.txt

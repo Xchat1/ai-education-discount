@@ -1,0 +1,25 @@
+{
+  "name": "ai-education-discount",
+  "version": "1.0.0",
+  "description": "2026 全球 AI 学生福利大全 - 支持 Docker 与 Cloudflare 部署并集成管理审核系统",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "init-db": "node -e \"const fs=require('fs');const {DatabaseSync}=require('node:sqlite');fs.mkdirSync('./data',{recursive:true});const db=new DatabaseSync('./data/deals.db');db.exec(fs.readFileSync('schema.sql','utf8'));console.log('Database initialized successfully.');\"",
+    "docker:build": "docker build -t ai-education-discount .",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "cf:deploy": "wrangler pages deploy .",
+    "cf:d1:init": "wrangler d1 execute ai_deals_db --file=schema.sql"
+  },
+  "keywords": [
+    "ai",
+    "student-discount",
+    "education",
+    "cloudflare",
+    "docker"
+  ],
+  "author": "",
+  "license": "MIT"
+}

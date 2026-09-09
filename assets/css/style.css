@@ -117,6 +117,15 @@ section[id], header[id], div[id] { scroll-margin-top: calc(var(--nav-h, 76px) + 
   box-shadow: 0 8px 24px -8px rgba(139,124,255,.75); transition: .2s; white-space: nowrap;
 }
 .nav-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -8px rgba(139,124,255,.9); }
+.nav-gh {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+  padding: 8px 13px; border-radius: 10px; color: var(--txt-2); background: var(--glass);
+  border: 1px solid var(--stroke); text-decoration: none; transition: .2s; white-space: nowrap;
+}
+.nav-gh:hover {
+  color: var(--txt-1); background: var(--glass-strong); border-color: var(--stroke-hover);
+  transform: translateY(-2px);
+}
 
 /* ---------- Hero ---------- */
 .hero { padding: 86px 0 54px; text-align: center; position: relative; }
@@ -417,7 +426,7 @@ section { padding: 74px 0; position: relative; }
 .form-ok.show { display: flex; animation: rise .4s both; }
 
 /* 已提交列表 */
-.mine { margin-top: 30px; position: relative; }
+.mine { margin-top: 34px; position: relative; border-top: 1px solid rgba(255,255,255,.08); padding-top: 28px; }
 .mine-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
 .mine-head h4 { font-size: 15px; font-weight: 800; }
 .mine-head .n { font-size: 12px; color: var(--txt-3); }
@@ -486,11 +495,143 @@ section { padding: 74px 0; position: relative; }
 }
 .modal-go:hover { transform: translateY(-2px); }
 
-/* ---------- 页脚 ---------- */
-footer { padding: 46px 0 60px; border-top: 1px solid var(--stroke); position: relative; z-index: 1; }
-.foot-in { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
-.foot-in p { font-size: 12.5px; color: var(--txt-3); max-width: 620px; line-height: 1.8; }
-.foot-brand { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
+/* ---------- 现代多列页脚 ---------- */
+footer {
+  margin-top: 70px;
+  padding: 64px 0 40px;
+  border-top: 1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(8, 11, 24, 0.4) 0%, rgba(5, 7, 15, 0.95) 100%);
+  position: relative;
+  z-index: 2;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr 1.1fr 1.2fr;
+  gap: 40px;
+  padding-bottom: 40px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+@media (max-width: 980px) {
+  .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+}
+
+@media (max-width: 580px) {
+  .footer-grid { grid-template-columns: 1fr; gap: 26px; }
+}
+
+.footer-brand-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--txt-1);
+}
+
+.footer-desc {
+  font-size: 13px;
+  color: var(--txt-3);
+  line-height: 1.8;
+  max-width: 400px;
+}
+
+.footer-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.footer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--txt-2);
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all .2s;
+}
+
+.footer-badge:hover {
+  border-color: var(--brand-1);
+  color: #fff;
+  background: var(--glass-strong);
+}
+
+.footer-col h4 {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--txt-1);
+  margin-bottom: 16px;
+  letter-spacing: 0.02em;
+}
+
+.footer-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.footer-links a {
+  font-size: 13px;
+  color: var(--txt-3);
+  text-decoration: none;
+  transition: all .2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-links a:hover {
+  color: var(--brand-2);
+  transform: translateX(2px);
+}
+
+.footer-bottom {
+  padding-top: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12.5px;
+  color: var(--txt-3);
+}
+
+.footer-disclaimer {
+  max-width: 780px;
+  line-height: 1.7;
+}
+
+.footer-bottom-links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  white-space: nowrap;
+}
+
+.footer-bottom-links a {
+  color: var(--txt-3);
+  text-decoration: none;
+  transition: color .2s;
+}
+
+.footer-bottom-links a:hover {
+  color: var(--txt-1);
+}
 
 /* ---------- 滚动动画 ---------- */
 .reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s cubic-bezier(.2,.8,.3,1), transform .7s cubic-bezier(.2,.8,.3,1); }

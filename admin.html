@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 学生折扣站 · 管理审核后台</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/admin.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚙️%3C/text%3E%3C/svg%3E">
+</head>
+<body class="admin-body">
+
+<!-- 背景层 -->
+<div class="bg-layer">
+  <div class="aurora a1"></div>
+  <div class="aurora a2"></div>
+  <div class="aurora a3"></div>
+  <div class="grid-bg"></div>
+  <div class="noise"></div>
+</div>
+
+<!-- 顶部导航 -->
+<header class="admin-nav">
+  <div class="admin-nav-in">
+    <div style="display:flex;align-items:center;">
+      <div class="logo-mark" style="font-size:22px;margin-right:8px">🎓</div>
+      <div style="font-weight:700;font-size:16px;color:var(--txt-1)">
+        <span data-i18n="logo.title">AI 学生折扣站</span>
+        <span class="admin-badge" data-i18n="admin.badge">⚙️ 审核管理后台</span>
+      </div>
+    </div>
+    <div class="admin-actions">
+      <button class="btn-mini" id="langToggle" style="cursor:pointer;font-weight:700">🌐 EN</button>
+      <a href="https://github.com/Xchat1/ai-education-discount" target="_blank" rel="noopener noreferrer" class="btn-mini" style="text-decoration:none">⭐ GitHub</a>
+      <a href="index.html" class="btn-mini" style="text-decoration:none" data-i18n="admin.backToSite">← 返回前台</a>
+      <button class="btn-mini danger" id="btnLogout" data-i18n="admin.logout">退出登录</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" style="position:relative;z-index:2">
+  <!-- KPI 概览 -->
+  <div class="kpi-grid">
+    <div class="kpi-card pending active" data-tab="pending">
+      <div class="kpi-title">
+        <span data-i18n="admin.kpiPending">⏳ 待审核提交</span>
+        <span class="dot-live" style="background:var(--warn)"></span>
+      </div>
+      <div class="kpi-num" id="kpiPending">0</div>
+    </div>
+    <div class="kpi-card approved" data-tab="approved">
+      <div class="kpi-title">
+        <span data-i18n="admin.kpiApproved">🟢 已上线福利</span>
+        <span>✓</span>
+      </div>
+      <div class="kpi-num" id="kpiApproved">0</div>
+    </div>
+    <div class="kpi-card rejected" data-tab="rejected">
+      <div class="kpi-title">
+        <span data-i18n="admin.kpiRejected">🔴 已驳回记录</span>
+        <span>✕</span>
+      </div>
+      <div class="kpi-num" id="kpiRejected">0</div>
+    </div>
+    <div class="kpi-card total" data-tab="all">
+      <div class="kpi-title">
+        <span data-i18n="admin.kpiTotal">📊 全部条目</span>
+        <span>Σ</span>
+      </div>
+      <div class="kpi-num" id="kpiTotal">0</div>
+    </div>
+  </div>
+
+  <!-- 工具栏 -->
+  <div class="toolbar">
+    <div class="tab-group" id="tabGroup">
+      <button class="tab-btn active" data-status="pending"><span data-i18n="admin.tabPending">⏳ 待审核</span> (<span id="tabCountPending">0</span>)</button>
+      <button class="tab-btn" data-status="approved"><span data-i18n="admin.tabApproved">🟢 已上线</span> (<span id="tabCountApproved">0</span>)</button>
+      <button class="tab-btn" data-status="rejected"><span data-i18n="admin.tabRejected">🔴 已驳回</span> (<span id="tabCountRejected">0</span>)</button>
+      <button class="tab-btn" data-status="all"><span data-i18n="admin.tabAll">🌐 全部</span> (<span id="tabCountAll">0</span>)</button>
+    </div>
+
+    <div class="toolbar-tools">
+      <input type="text" class="admin-input" id="searchKeyword" placeholder="搜索平台、厂商或内容…" data-i18n-ph="admin.searchPlaceholder" style="width:200px">
+      <select class="admin-select" id="catFilter">
+        <option value="all" data-i18n="admin.allCats">全部类别</option>
+      </select>
+      <button class="btn-action btn-approve" id="btnAddNew" style="padding:8px 16px" data-i18n="admin.addNew">+ 手动录入新福利</button>
+    </div>
+  </div>
+
+  <!-- 列表容器 -->
+  <div class="audit-list" id="auditList">
+    <div class="empty" style="padding:60px" data-i18n="admin.loading">正在加载审核数据…</div>
+  </div>
+</main>
+
+<!-- 编辑 / 新增模态弹窗 -->
+<div class="admin-modal" id="dealModal">
+  <div class="modal-content">
+    <div class="modal-head">
+      <h3 id="modalTitle" data-i18n="admin.modalTitle">编辑福利条目</h3>
+      <button class="modal-close" id="btnModalClose">&times;</button>
+    </div>
+    <form id="dealForm">
+      <input type="hidden" id="mId">
+      <div class="m-grid">
+        <div class="m-field">
+          <label data-i18n="admin.lblPlatformName">平台 / 福利名称 *</label>
+          <input type="text" class="m-input" id="mName" required placeholder="例：Google Gemini 学生计划">
+        </div>
+        <div class="m-field">
+          <label data-i18n="admin.lblVendor">厂商 / 品牌 *</label>
+          <input type="text" class="m-input" id="mVendor" required placeholder="例：Google">
+        </div>
+        <div class="m-field">
+          <label data-i18n="admin.lblCategory">所属分类 *</label>
+          <select class="m-select" id="mCategory" required></select>
+        </div>
+        <div class="m-field">
+          <label data-i18n="admin.lblTier">申请优先级 (Tier)</label>
+          <select class="m-select" id="mTier">
+            <option value="S">Tier S (必申神券)</option>
+            <option value="A" selected>Tier A (推荐申请)</option>
+            <option value="B">Tier B (备选/一般)</option>
+          </select>
+        </div>
+        <div class="m-field">
+          <label data-i18n="admin.lblStatus">福利状态标签</label>
+          <select class="m-select" id="mStatus"></select>
+        </div>
+        <div class="m-field">
+          <label data-i18n="admin.lblValue">预估价值</label>
+          <input type="text" class="m-input" id="mValue" placeholder="例：$239.88 或 免费">
+        </div>
+        <div class="m-field">
+          <label data-i18n="admin.lblDuration">权益时长</label>
+          <input type="text" class="m-input" id="mDuration" placeholder="例：免费 12 个月">
+        </div>
+        <div class="m-field">
+          <label data-i18n="admin.lblDeadline">截止日期</label>
+          <input type="date" class="m-input" id="mDeadline">
+        </div>
+        <div class="m-field">
+          <label data-i18n="admin.lblCn">中国大陆可用性</label>
+          <select class="m-select" id="mCn"></select>
+        </div>
+        <div class="m-field">
+          <label data-i18n="admin.lblDifficulty">申请难度 (1-5)</label>
+          <select class="m-select" id="mDifficulty">
+            <option value="1">1 星 (极其容易/秒过)</option>
+            <option value="2">2 星 (校邮即可)</option>
+            <option value="3" selected>3 星 (SheerID / 学信网)</option>
+            <option value="4">4 星 (严格人工审核)</option>
+            <option value="5">5 星 (极高门槛/锁区)</option>
+          </select>
+        </div>
+        <div class="m-field full">
+          <label data-i18n="admin.lblUrl">官方申请入口 URL *</label>
+          <input type="url" class="m-input" id="mUrl" required placeholder="https://...">
+        </div>
+        <div class="m-field full">
+          <label data-i18n="admin.lblTags">核心标签 (以英文逗号分隔)</label>
+          <input type="text" class="m-input" id="mTags" placeholder="例：12个月, 5TB 存储, 无需信用卡">
+        </div>
+        <div class="m-field full">
+          <label data-i18n="admin.lblSummary">一句话摘要说明 *</label>
+          <textarea class="m-textarea" id="mSummary" required placeholder="说明该学生福利的主要内容、面向受众与核心限制…"></textarea>
+        </div>
+        <div class="m-field full">
+          <label data-i18n="admin.lblHighlights">权益亮点 (每行一条)</label>
+          <textarea class="m-textarea" id="mHighlights" placeholder="每行输入一条亮点特性..."></textarea>
+        </div>
+        <div class="m-field full">
+          <label data-i18n="admin.lblNotes">认证注意与避坑指南</label>
+          <textarea class="m-textarea" id="mNotes" placeholder="例如：需验证学校邮箱，到期自动续费注意取消..."></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn-action btn-reject" id="btnModalCancel" data-i18n="admin.btnCancel">取消</button>
+        <button type="submit" class="btn-action btn-approve" id="btnModalSubmit" data-i18n="admin.btnSave">保存并上线</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 登录遮罩 -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="login-icon">🔐</div>
+    <h2 data-i18n="admin.loginTitle">管理审核系统登录</h2>
+    <p data-i18n="admin.loginDesc">请输入管理员密码以进入审核控制台</p>
+    <form id="loginForm">
+      <div class="login-field">
+        <label data-i18n="admin.loginPwd">管理员密码</label>
+        <input type="password" class="login-input" id="loginPassword" placeholder="输入管理员密码" data-i18n-ph="admin.loginPh" required autofocus>
+      </div>
+      <button type="submit" class="btn-login" id="btnLoginSubmit" data-i18n="admin.loginBtn">进入控制台</button>
+      <div style="margin-top:16px">
+        <a href="index.html" style="color:var(--txt-3);font-size:12.5px;text-decoration:none" data-i18n="admin.backToSite">← 返回福利站前台</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- 依赖脚本 -->
+<script src="assets/js/data.js"></script>
+<script src="assets/js/deals-en.js"></script>
+<script src="assets/js/i18n.js"></script>
+<script src="assets/js/admin.js"></script>
+</body>
+</html>

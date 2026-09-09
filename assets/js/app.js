@@ -42,12 +42,15 @@ function renderCountdowns() {
   const list = allDeals.filter(d => d.deadline)
     .sort((a, b) => a.deadline < b.deadline ? -1 : 1)
     .slice(0, 3)
-    .map(d => ({
-      label: d.name,
-      date: d.deadline,
-      urgent: daysLeft(d.deadline) <= 30,
-      start: '2026-09-01'
-    }));
+    .map(d => {
+      const locD = typeof localizeDeal === 'function' ? localizeDeal(d) : d;
+      return {
+        label: locD.name,
+        date: d.deadline,
+        urgent: daysLeft(d.deadline) <= 30,
+        start: '2026-09-01'
+      };
+    });
 
   $('#countdowns').innerHTML = list.map(c => {
     const left = daysLeft(c.date);
@@ -66,9 +69,7 @@ function renderCountdowns() {
           <div class="cd-num"><b>${String(Math.floor(left / 30)).padStart(2, '0')}</b><span>MONTHS</span></div>
         </div>
         <div class="cd-bar"><i style="width:${pct}%"></i></div>
-        <div class="cd-note">${c.urgent
-          ? '临期活动：逾期后不再补发，看到就尽快用'
-          : '请在截止日期前完成领取'}</div>
+        <div class="cd-note">${c.urgent ? (typeof t === 'function' ? t('cd.urgentNote') : '临期活动：逾期后不再补发，看到就尽快用') : (typeof t === 'function' ? t('cd.normalNote') : '请在截止日期前完成领取')}</div>
       </div>`;
   }).join('');
 
@@ -79,7 +80,10 @@ function renderCountdowns() {
   if (nums[0]) nums[0].dataset.count = Math.round(total);
   if (nums[1]) nums[1].dataset.count = allDeals.length;
   if (nums[2]) nums[2].dataset.count = CATEGORIES.length - 1;
-  if (nums[3]) nums[3].dataset.count = deadlines.length ? Math.min(...deadlines) : daysLeft(SITE_META.hotDeadline.date);
+  if (nums[3]) {
+    nums[3].dataset.count = deadlines.length ? Math.min(...deadlines) : daysLeft(SITE_META.hotDeadline.date);
+    nums[3].dataset.suffix = (typeof getCurrentLang === 'function' && getCurrentLang() === 'en') ? ' Days' : ' 天';
+  }
 }
 
 /* ================= 分类 Chips ================= */
@@ -90,10 +94,13 @@ function renderChips() {
   counts.all = allDeals.length;
   counts.china = allDeals.filter(d => d.cnNative).length;
 
-  $('#catChips').innerHTML = CATEGORIES.map(c => `
-    <button class="chip ${c.id === state.cat ? 'on' : ''}" data-cat="${c.id}">
-      ${c.icon} ${c.name}<span class="cnt">${counts[c.id] || 0}</span>
-    </button>`).join('');
+  $('#catChips').innerHTML = CATEGORIES.map(c => {
+    const name = typeof t === 'function' ? t('cat.' + c.id) : c.name;
+    return `
+      <button class="chip ${c.id === state.cat ? 'on' : ''}" data-cat="${c.id}">
+        ${c.icon} ${name}<span class="cnt">${counts[c.id] || 0}</span>
+      </button>`;
+  }).join('');
 
   $$('#catChips .chip').forEach(b => b.onclick = () => {
     state.cat = b.dataset.cat;
@@ -118,7 +125,9 @@ function renderCards() {
     if (state.tier !== 'all' && d.tier !== state.tier) return false;
     if (state.cn !== 'all' && d.cn !== state.cn) return false;
     if (q) {
-      const hay = [d.name, d.vendor, d.summary, ...(d.tags || []), ...(d.highlights || [])]
+      const en = (typeof DEALS_EN !== 'undefined' && DEALS_EN[d.id]);
+      const enHay = en ? [en.name, en.vendor, en.summary, ...(en.tags || []), ...(en.highlights || [])].join(' ') : '';
+      const hay = [d.name, d.vendor, d.summary, ...(d.tags || []), ...(d.highlights || []), enHay]
         .join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
@@ -138,23 +147,34 @@ function renderCards() {
   list.sort(cmp);
 
   $('#noResult').style.display = list.length ? 'none' : 'block';
-  $('#resCount').innerHTML = `匹配 <b>${list.length}</b> / ${src.length} 条`;
+  $('#resCount').innerHTML = typeof t === 'function'
+    ? t('filter.resCount', { n: list.length, total: src.length })
+    : `匹配 <b>${list.length}</b> / ${src.length} 条`;
 
-  $('#cardGrid').innerHTML = list.map((d, i) => {
+  $('#cardGrid').innerHTML = list.map((rawD, i) => {
+    const d = typeof localizeDeal === 'function' ? localizeDeal(rawD) : rawD;
     const st = STATUS_MAP[d.status];
     const cn = CN_MAP[d.cn];
     const c = catOf(d.category);
+    const catName = typeof t === 'function' ? t('cat.' + d.category) : c.name;
+    const stLabel = typeof t === 'function' ? t('status.' + d.status) : st.label;
+    const cnLabel = typeof t === 'function' ? t('cn.' + d.cn) : cn.label;
     const left = daysLeft(d.deadline);
+    const applyTxt = typeof t === 'function' ? t('card.btnApply') : '去申请 →';
+    const isMineTag = typeof t === 'function' ? t('card.isMine') : '✎ 我提交';
+    const leftTag = typeof t === 'function' ? t('card.leftDays', { n: left }) : `剩 ${left} 天`;
+    const diffTitle = typeof t === 'function' ? `${t('card.diff')} ${d.difficulty}/5` : `申请难度 ${d.difficulty}/5`;
+
     return `
     <article class="card t-${d.tier}" data-id="${d.id}" tabindex="0" role="button"
-      aria-label="查看 ${esc(d.name)} 详情" style="animation-delay:${Math.min(i * 26, 420)}ms">
+      aria-label="${esc(d.name)}" style="animation-delay:${Math.min(i * 26, 420)}ms">
       <div class="card-top">
         <div class="brand-mark" style="background:${gradientOf(d.brand)}">${esc(d.letter)}</div>
         <div class="card-title">
           <h3>${esc(d.name)}</h3>
-          <div class="card-vendor">${esc(d.vendor)} · ${c.icon} ${c.name}</div>
+          <div class="card-vendor">${esc(d.vendor)} · ${c.icon} ${catName}</div>
         </div>
-        <div class="tier-badge tier-${d.tier}" title="${d.tier} 级优先级">${d.tier}</div>
+        <div class="tier-badge tier-${d.tier}" title="${d.tier}">${d.tier}</div>
       </div>
 
       <div class="card-value">
@@ -166,24 +186,24 @@ function renderCards() {
 
       <div class="tags">
         ${(d.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join('')}
-        ${d.isMine ? `<span class="tag" style="color:var(--brand-3);border-color:rgba(255,122,182,.4);background:rgba(255,122,182,.14)">✎ 我提交</span>` : ''}
-        ${left !== null && left <= 60 ? `<span class="tag hot">⏳ 剩 ${left} 天</span>` : ''}
+        ${d.isMine ? `<span class="tag" style="color:var(--brand-3);border-color:rgba(255,122,182,.4);background:rgba(255,122,182,.14)">${isMineTag}</span>` : ''}
+        ${left !== null && left <= 60 ? `<span class="tag hot">⏳ ${leftTag}</span>` : ''}
       </div>
 
       <div class="card-foot">
         <div>
           <div class="status-dot" style="color:${st.color}">
-            <i style="background:${st.color};box-shadow:0 0 8px ${st.color}"></i>${st.label}
+            <i style="background:${st.color};box-shadow:0 0 8px ${st.color}"></i>${stLabel}
           </div>
           <div class="card-meta">
-            <span class="cn-badge" style="background:${cn.color}1f;color:${cn.color}">${cn.label}</span>
-            <span class="diff" title="申请难度 ${d.difficulty}/5">
+            <span class="cn-badge" style="background:${cn.color}1f;color:${cn.color}">${cnLabel}</span>
+            <span class="diff" title="${diffTitle}">
               ${[1,2,3,4,5].map(n => `<i class="${n <= d.difficulty ? 'on' : ''}"></i>`).join('')}
             </span>
           </div>
         </div>
         <a class="go-btn" href="${esc(safeUrl(d.url))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
-          去申请 →
+          ${applyTxt}
         </a>
       </div>
     </article>`;
@@ -214,17 +234,36 @@ function bindCards() {
 
 /* ================= 详情弹窗 ================= */
 function openModal(id) {
-  const d = allDeals.find(x => x.id === id) ||
+  const rawD = allDeals.find(x => x.id === id) ||
             (state.mine ? mineAsDeals().find(x => x.id === id) : null);
-  if (!d) return;
+  if (!rawD) return;
+  const d = typeof localizeDeal === 'function' ? localizeDeal(rawD) : rawD;
   const st = STATUS_MAP[d.status], cn = CN_MAP[d.cn], c = catOf(d.category);
+  const catName = typeof t === 'function' ? t('cat.' + d.category) : c.name;
+  const stLabel = typeof t === 'function' ? t('status.' + d.status) : st.label;
+  const cnLabel = typeof t === 'function' ? t('cn.' + d.cn) : cn.label;
   const left = daysLeft(d.deadline);
+  const isEn = typeof getCurrentLang === 'function' && getCurrentLang() === 'en';
+
   const req = [
-    ['学校邮箱 / 学生身份', d.need.edu],
-    ['SheerID 认证', d.need.sheerid],
-    ['国际信用卡', d.need.card],
-    ['海外网络环境', d.need.vpn]
+    [typeof t === 'function' ? t('card.needEdu') : '学校邮箱 / 学生身份', d.need.edu],
+    [typeof t === 'function' ? t('card.needSheerid') : 'SheerID 认证', d.need.sheerid],
+    [typeof t === 'function' ? t('card.needCard') : '国际信用卡', d.need.card],
+    [typeof t === 'function' ? t('card.needVpn') : '海外网络环境', d.need.vpn]
   ];
+
+  const neededPrefix = typeof t === 'function' ? t('modal.needed') : '需要 · ';
+  const notNeededPrefix = typeof t === 'function' ? t('modal.notNeeded') : '不需要 · ';
+  const valLabel = typeof t === 'function' ? t('card.value') : '预估价值';
+  const durLabel = typeof t === 'function' ? t('card.duration') : '权益周期';
+  const timeLabel = typeof t === 'function' ? (d.deadline ? t('card.deadline') : t('card.noDeadline')) : (d.deadline ? '剩余时间' : '无截止');
+  const timeVal = d.deadline ? (left + (isEn ? ' days' : ' 天')) : (typeof t === 'function' ? t('card.noDeadline') : '长期');
+  const cnRegionText = isEn ? `China: ${cnLabel}` : `中国大陆：${cnLabel}`;
+  const diffText = typeof t === 'function' ? `${t('card.diff')} ` : '申请难度 ';
+  const perksTitle = typeof t === 'function' ? t('modal.perks') : '包含权益';
+  const reqsTitle = typeof t === 'function' ? t('modal.reqs') : '申请要求';
+  const notesTitle = typeof t === 'function' ? t('modal.notesTitle') : '注意：';
+  const goBtnText = typeof t === 'function' ? t('modal.btnGo') : '前往官方页面申请 →';
 
   $('#modalCard').innerHTML = `
     <button class="modal-close" id="mcClose">×</button>
@@ -232,33 +271,33 @@ function openModal(id) {
       <div class="brand-mark" style="background:${gradientOf(d.brand)}">${esc(d.letter)}</div>
       <div>
         <h3>${esc(d.name)}</h3>
-        <div class="mv">${esc(d.vendor)} · ${c.icon} ${c.name} · ${d.tier} 级优先级</div>
+        <div class="mv">${esc(d.vendor)} · ${c.icon} ${catName} · Tier ${d.tier}</div>
       </div>
     </div>
 
     <div class="modal-metrics">
-      <div class="metric"><b style="color:var(--brand-4)">${esc(d.value)}</b><span>预估价值</span></div>
-      <div class="metric"><b>${esc(d.duration)}</b><span>权益周期</span></div>
-      <div class="metric"><b>${d.deadline ? (left + ' 天') : '长期'}</b><span>${d.deadline ? '剩余时间' : '无截止'}</span></div>
+      <div class="metric"><b style="color:var(--brand-4)">${esc(d.value)}</b><span>${valLabel}</span></div>
+      <div class="metric"><b>${esc(d.duration)}</b><span>${durLabel}</span></div>
+      <div class="metric"><b>${timeVal}</b><span>${timeLabel}</span></div>
     </div>
 
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <span class="tag" style="color:${st.color};border-color:${st.color}44;background:${st.color}18">${st.emoji} ${st.label}</span>
-      <span class="tag" style="color:${cn.color};border-color:${cn.color}44;background:${cn.color}18">中国大陆：${cn.label}</span>
-      <span class="tag">申请难度 ${'●'.repeat(d.difficulty)}${'○'.repeat(5 - d.difficulty)}</span>
+      <span class="tag" style="color:${st.color};border-color:${st.color}44;background:${st.color}18">${st.emoji} ${stLabel}</span>
+      <span class="tag" style="color:${cn.color};border-color:${cn.color}44;background:${cn.color}18">${cnRegionText}</span>
+      <span class="tag">${diffText}${'●'.repeat(d.difficulty)}${'○'.repeat(5 - d.difficulty)}</span>
     </div>
 
-    <div class="modal-h4">包含权益</div>
+    <div class="modal-h4">${perksTitle}</div>
     <ul class="hl-list">${(d.highlights || []).map(h => `<li>${esc(h)}</li>`).join('')}</ul>
 
-    <div class="modal-h4">申请要求</div>
+    <div class="modal-h4">${reqsTitle}</div>
     <div class="req-grid">
-      ${req.map(([n, v]) => `<span class="req-item ${v ? 'yes' : ''}">${v ? '需要 · ' : '不需要 · '}${n}</span>`).join('')}
+      ${req.map(([n, v]) => `<span class="req-item ${v ? 'yes' : ''}">${v ? neededPrefix : notNeededPrefix}${n}</span>`).join('')}
     </div>
 
-    ${d.notes ? `<div class="note-box"><b>注意：</b>${esc(d.notes)}</div>` : ''}
+    ${d.notes ? `<div class="note-box"><b>${notesTitle}</b>${esc(d.notes)}</div>` : ''}
 
-    <a class="modal-go" href="${esc(safeUrl(d.url))}" target="_blank" rel="noopener">前往官方页面申请 →</a>
+    <a class="modal-go" href="${esc(safeUrl(d.url))}" target="_blank" rel="noopener">${goBtnText}</a>
   `;
   $('#modal').classList.add('show');
   savedScroll = window.scrollY;
@@ -275,7 +314,8 @@ function closeModal() {
 
 /* ================= 路线图 ================= */
 function renderRoadmap() {
-  $('#roadGrid').innerHTML = ROADMAPS.map(r => `
+  const roadmaps = typeof getLocalizedRoadmaps === 'function' ? getLocalizedRoadmaps() : ROADMAPS;
+  $('#roadGrid').innerHTML = roadmaps.map(r => `
     <div class="road" style="--c:${r.color}">
       <h3>${esc(r.title)}</h3>
       <p>${esc(r.desc)}</p>
@@ -296,6 +336,8 @@ function renderRoadmap() {
   ];
   const bottoms = ['Notion / Figma / Office', 'Overleaf / Adobe / Canva'];
   const JOIN = 340, H = 512;
+  const topNodeText = typeof t === 'function' ? t('tree.student') : '🎓 学生身份';
+  const bottomNodeText = typeof t === 'function' ? t('tree.workstation') : '🎓 学生 AI 超级工作站';
 
   let svg = `<svg viewBox="0 0 900 ${H}" width="100%" style="display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -316,7 +358,7 @@ function renderRoadmap() {
 
   // 顶部节点
   svg += `<rect x="345" y="42" width="210" height="34" rx="17" fill="url(#tg)" opacity=".95"/>
-    <text x="450" y="64" text-anchor="middle" fill="#0a0d1a" font-size="15" font-weight="800">🎓 学生身份</text>`;
+    <text x="450" y="64" text-anchor="middle" fill="#0a0d1a" font-size="15" font-weight="800">${topNodeText}</text>`;
 
   // 三列
   cols.forEach(c => {
@@ -340,7 +382,7 @@ function renderRoadmap() {
   svg += `<path d="M450 424 L450 444" stroke="url(#tg)" stroke-width="1.6" fill="none" opacity=".65"/>`;
 
   svg += `<rect x="288" y="444" width="324" height="44" rx="22" fill="url(#tg)" opacity=".92"/>
-    <text x="450" y="471" text-anchor="middle" fill="#0a0d1a" font-size="15" font-weight="900">🎓 学生 AI 超级工作站</text>`;
+    <text x="450" y="471" text-anchor="middle" fill="#0a0d1a" font-size="15" font-weight="900">${bottomNodeText}</text>`;
 
   svg += `</svg>`;
   $('#treeSvg').innerHTML = svg;
@@ -348,7 +390,9 @@ function renderRoadmap() {
 
 /* ================= 价值分布 ================= */
 function renderValue() {
-  const top = allDeals.filter(d => d.valueNum > 0).sort((a, b) => b.valueNum - a.valueNum);
+  const top = allDeals.filter(d => d.valueNum > 0)
+    .sort((a, b) => b.valueNum - a.valueNum)
+    .map(rawD => typeof localizeDeal === 'function' ? localizeDeal(rawD) : rawD);
   const total = top.reduce((s, d) => s + d.valueNum, 0);
 
   // 环形图
@@ -372,7 +416,7 @@ function renderValue() {
     </svg>
     <div class="donut-center">
       <b class="grad">$${Math.round(total).toLocaleString()}</b>
-      <span>可折算年价值</span>
+      <span>${typeof t === 'function' ? t('value.donutLabel') : '可折算年价值'}</span>
     </div>`;
 
   // 条形图
@@ -393,7 +437,8 @@ function renderValue() {
 
 /* ================= 提醒 ================= */
 function renderWarnings() {
-  $('#warnGrid').innerHTML = WARNINGS.map(w => `
+  const warnings = typeof getLocalizedWarnings === 'function' ? getLocalizedWarnings() : WARNINGS;
+  $('#warnGrid').innerHTML = warnings.map(w => `
     <div class="warn-card">
       <h4><span>⚠️</span>${esc(w.title)}</h4>
       <p>${esc(w.body)}</p>
@@ -420,23 +465,23 @@ function animateCounters() {
 /* ================= 提交表单 ================= */
 function initForm() {
   $('#fCategory').innerHTML = CATEGORIES.filter(c => c.id !== 'all')
-    .map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+    .map(c => `<option value="${c.id}">${c.icon} ${typeof t === 'function' ? t('cat.' + c.id) : c.name}</option>`).join('');
   $('#fStatus').innerHTML = Object.entries(STATUS_MAP)
-    .map(([k, v]) => `<option value="${k}">${v.emoji} ${v.label}</option>`).join('');
+    .map(([k, v]) => `<option value="${k}">${v.emoji} ${typeof t === 'function' ? t('status.' + k) : v.label}</option>`).join('');
   $('#fCn').innerHTML = Object.entries(CN_MAP)
-    .map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+    .map(([k, v]) => `<option value="${k}">${typeof t === 'function' ? t('cn.' + k) : v.label}</option>`).join('');
 
   renderMine();
 
-  $('#submitForm').onsubmit = e => {
+  $('#submitForm').onsubmit = async e => {
     e.preventDefault();
     const name = $('#fName').value.trim();
     const vendor = $('#fVendor').value.trim();
     const url = $('#fUrl').value.trim();
     const desc = $('#fDesc').value.trim();
 
-    if (!name || !vendor || !url || !desc) return toast('请填写带 * 的必填项');
-    if (!/^https?:\/\/.+/i.test(url)) return toast('官方入口需以 http:// 或 https:// 开头');
+    if (!name || !vendor || !url || !desc) return toast(typeof t === 'function' ? t('toast.reqFields') : '请填写带 * 的必填项');
+    if (!/^https?:\/\/.+/i.test(url)) return toast(typeof t === 'function' ? t('toast.invalidUrl') : '官方入口需以 http:// 或 https:// 开头');
 
     const item = {
       id: 'u_' + Date.now(),
@@ -451,6 +496,23 @@ function initForm() {
       createdAt: new Date().toISOString()
     };
 
+    // 尝试提交至服务端审核队列
+    let serverOk = false;
+    try {
+      const res = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item)
+      });
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.id) item.id = resData.id;
+        serverOk = true;
+      }
+    } catch (err) {
+      console.warn('服务端不可用，降级为本地离线保存:', err);
+    }
+
     const list = loadMine();
     list.unshift(item);
     saveMine(list);
@@ -460,18 +522,19 @@ function initForm() {
     $('#submitForm').reset();
     $('#formOk').classList.add('show');
     setTimeout(() => $('#formOk').classList.remove('show'), 3600);
-    toast('提交成功，已加入我的福利列表');
+    toast(serverOk ? (typeof t === 'function' ? t('toast.submitOk') : '提交成功！已进入管理员审核队列 🎉') : (typeof t === 'function' ? t('toast.submitOffline') : '已保存在本地浏览器（当前处于离线模式）'));
   };
 
-  $('#btnReset').onclick = () => { $('#submitForm').reset(); toast('表单已清空'); };
+  $('#btnReset').onclick = () => { $('#submitForm').reset(); toast(typeof t === 'function' ? t('toast.formReset') : '表单已清空'); };
   $('#btnClear').onclick = () => {
-    if (!loadMine().length) return toast('列表已经是空的');
-    if (!confirm('确定清空全部已提交的福利？此操作不可恢复。')) return;
-    saveMine([]); renderMine(); toast('已清空');
+    if (!loadMine().length) return toast(typeof t === 'function' ? t('toast.mineEmpty') : '列表已经是空的');
+    const confirmMsg = typeof t === 'function' ? t('toast.clearConfirm') : '确定清空全部已提交的福利？此操作不可恢复。';
+    if (!confirm(confirmMsg)) return;
+    saveMine([]); renderMine(); toast(typeof t === 'function' ? t('toast.cleared') : '已清空');
   };
   $('#btnExport').onclick = () => {
     const list = loadMine();
-    if (!list.length) return toast('暂无可导出的内容');
+    if (!list.length) return toast(typeof t === 'function' ? t('toast.exportEmpty') : '暂无可导出的内容');
     const blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -480,7 +543,7 @@ function initForm() {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
-    toast('已导出 JSON');
+    toast(typeof t === 'function' ? t('toast.exportOk') : '已导出 JSON');
   };
 }
 
@@ -488,25 +551,26 @@ const loadMine = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)) |
 
 /* 把用户提交的条目映射成卡片结构，使其可参与筛选 / 搜索 / 详情 */
 function mineAsDeals() {
+  const isEn = typeof getCurrentLang === 'function' && getCurrentLang() === 'en';
   return loadMine().map(m => {
     const num = parseFloat(String(m.value || '').replace(/[^0-9.]/g, '')) || 0;
     return {
       id: m.id, isMine: true, cnNative: m.cn === 'ok',
-      name: m.name, vendor: m.vendor || '用户提交',
+      name: m.name, vendor: m.vendor || (isEn ? 'User Submitted' : '用户提交'),
       letter: (m.vendor || m.name || 'ME').slice(0, 2).toUpperCase(),
       brand: ['#ff7ab6', '#8b7cff'],
       category: m.category || 'ai',
       tier: 'A',
       status: m.status || 'conditional',
       value: m.value || '—', valueNum: num,
-      duration: '用户提交 · 待核实',
+      duration: isEn ? 'User Submission · Pending' : '用户提交 · 待核实',
       deadline: m.deadline || '',
       cn: m.cn || 'partial',
       difficulty: 3,
       tags: [],
       summary: m.desc || '',
       highlights: m.desc ? [m.desc] : [],
-      notes: m.contact ? `提交者联系方式：${m.contact}（未公开）` : '由你提交的条目，尚未核实，请以官方页面为准。',
+      notes: m.contact ? (isEn ? `Submitter Contact: ${m.contact} (Private)` : `提交者联系方式：${m.contact}（未公开）`) : (isEn ? 'Submitted by you; unverified, please check official portal.' : '由你提交的条目，尚未核实，请以官方页面为准。'),
       need: { edu: true, sheerid: false, card: false, vpn: false },
       url: safeUrl(m.url)
     };
@@ -515,11 +579,17 @@ function mineAsDeals() {
 const saveMine = l => {
   localStorage.setItem(LS_KEY, JSON.stringify(l));
   const n = l.length;
-  $('#mineCount').textContent = n;
+  const noteEl = $('.form-note');
+  if (noteEl && typeof t === 'function') {
+    noteEl.innerHTML = t('form.mineCount', { n });
+  } else if ($('#mineCount')) {
+    $('#mineCount').textContent = n;
+  }
   $('#mineCount2').textContent = n ? `(${n})` : '';
   const tgl = $('#mineToggle');
   if (tgl) {
-    tgl.textContent = `✎ 计入我的提交${n ? ` (${n})` : ''}`;
+    const toggleLabel = typeof t === 'function' ? t('filter.mineToggle') : '✎ 计入我的提交';
+    tgl.textContent = `${toggleLabel}${n ? ` (${n})` : ''}`;
     tgl.disabled = n === 0;
     if (n === 0) { tgl.classList.remove('mine-on'); state.mine = false; }
   }
@@ -529,37 +599,52 @@ function renderMine() {
   const list = loadMine();
   saveMine(list);
   const cnl = CN_MAP, stl = STATUS_MAP;
+  const pendingText = typeof t === 'function' ? t('card.pending') : '待核实';
+  const emptyText = typeof t === 'function' ? t('form.emptyMine') : '还没有提交记录。发现新的 AI 学生福利？用上方表单提交一条吧。';
+  const valWord = typeof t === 'function' ? t('card.value') : '价值';
+  const dueWord = typeof t === 'function' ? t('card.deadline') : '截止';
+  const openWord = typeof t === 'function' ? t('card.btnApply') : '打开入口 ↗';
+  const delWord = typeof getCurrentLang === 'function' && getCurrentLang() === 'en' ? 'Delete' : '删除';
+
   $('#mineList').innerHTML = list.length ? list.map(m => {
-    const c = catOf(m.category), s = stl[m.status] || stl.conditional, cn = cnl[m.cn] || cnl.partial;
+    const c = catOf(m.category);
+    const catName = typeof t === 'function' ? t('cat.' + m.category) : c.name;
+    const s = stl[m.status] || stl.conditional;
+    const stLabel = typeof t === 'function' ? t('status.' + m.status) : s.label;
+    const cn = cnl[m.cn] || cnl.partial;
+    const cnLabel = typeof t === 'function' ? t('cn.' + m.cn) : cn.label;
     const left = daysLeft(m.deadline);
+    const locDate = new Date(m.createdAt).toLocaleString(typeof getCurrentLang === 'function' && getCurrentLang() === 'en' ? 'en-US' : 'zh-CN');
+    const leftText = left !== null ? (typeof t === 'function' ? `（${t('card.leftDays', { n: left })}）` : `（剩 ${left} 天）`) : '';
+
     return `
     <div class="mine-item">
       <div class="mi-b">${esc((m.vendor || m.name).slice(0, 2).toUpperCase())}</div>
       <div class="mi-c">
         <div class="mi-t">
           ${esc(m.name)}
-          <span class="pending">待核实</span>
-          <span class="tag" style="font-size:10.5px">${c.icon} ${c.name}</span>
-          <span class="tag" style="font-size:10.5px;color:${cn.color};border-color:${cn.color}44">${cn.label}</span>
+          <span class="pending">${pendingText}</span>
+          <span class="tag" style="font-size:10.5px">${c.icon} ${catName}</span>
+          <span class="tag" style="font-size:10.5px;color:${cn.color};border-color:${cn.color}44">${cnLabel}</span>
         </div>
         <div class="mi-m">
-          ${esc(m.vendor)} · 价值 ${esc(m.value)} · ${s.emoji} ${s.label}
-          ${m.deadline ? ` · 截止 ${esc(m.deadline)}${left !== null ? `（剩 ${left} 天）` : ''}` : ''}
-          · ${new Date(m.createdAt).toLocaleString('zh-CN')}
+          ${esc(m.vendor)} · ${valWord} ${esc(m.value)} · ${s.emoji} ${stLabel}
+          ${m.deadline ? ` · ${dueWord} ${esc(m.deadline)}${leftText}` : ''}
+          · ${locDate}
         </div>
         <div class="mi-d">${esc(m.desc)}</div>
         <div style="margin-top:9px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <a class="btn-mini" href="${esc(safeUrl(m.url))}" target="_blank" rel="noopener" style="text-decoration:none">打开入口 ↗</a>
-          <button class="btn-mini danger" data-del="${m.id}">删除</button>
+          <a class="btn-mini" href="${esc(safeUrl(m.url))}" target="_blank" rel="noopener" style="text-decoration:none">${openWord}</a>
+          <button class="btn-mini danger" data-del="${m.id}">${delWord}</button>
         </div>
       </div>
     </div>`;
-  }).join('') : `<div class="empty">还没有提交记录。发现新的 AI 学生福利？用上方表单提交一条吧。</div>`;
+  }).join('') : `<div class="empty">${emptyText}</div>`;
 
   $$('#mineList [data-del]').forEach(b => b.onclick = () => {
     saveMine(loadMine().filter(x => x.id !== b.dataset.del));
     renderMine();
-    toast('已删除');
+    toast(typeof getCurrentLang === 'function' && getCurrentLang() === 'en' ? 'Deleted' : '已删除');
   });
 }
 
@@ -578,7 +663,7 @@ function initEvents() {
     state.mine = !state.mine;
     $('#mineToggle').classList.toggle('mine-on', state.mine);
     renderCards();
-    toast(state.mine ? '已把我提交的福利计入列表' : '已隐藏我提交的福利');
+    toast(state.mine ? (typeof t === 'function' ? t('toast.mineIncluded') : '已把我提交的福利计入列表') : (typeof t === 'function' ? t('toast.mineExcluded') : '已隐藏我提交的福利'));
   };
   $('#btnResetFilter').onclick = () => {
     Object.assign(state, { cat: 'all', tier: 'all', cn: 'all', sort: 'tier', q: '' });
@@ -588,7 +673,7 @@ function initEvents() {
     $('#sortSel').value = 'tier';
     renderChips();
     renderCards();
-    toast('筛选条件已重置');
+    toast(typeof t === 'function' ? t('toast.filterReset') : '筛选条件已重置');
   };
 
   $('#modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
@@ -607,6 +692,26 @@ function initEvents() {
   syncNavH();
   window.addEventListener('resize', syncNavH);
 
+  // 语言切换按钮
+  const langBtn = $('#langToggle');
+  if (langBtn) {
+    langBtn.onclick = () => {
+      if (typeof toggleLang === 'function') toggleLang();
+    };
+  }
+
+  // 监听多语言变更并联动重绘所有动态组件
+  window.addEventListener('langchange', () => {
+    renderChips();
+    renderCards();
+    renderRoadmap();
+    renderValue();
+    renderWarnings();
+    renderCountdowns();
+    initForm();
+    saveMine(loadMine());
+  });
+
   // 滚动入场
   const io = new IntersectionObserver(es => {
     es.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
@@ -615,7 +720,32 @@ function initEvents() {
 }
 
 /* ================= 启动 ================= */
+async function syncRemoteDeals() {
+  try {
+    const res = await fetch('/api/deals');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        allDeals = data;
+        renderCountdowns();
+        renderChips();
+        renderCards();
+        renderRoadmap();
+        renderValue();
+        renderWarnings();
+        animateCounters();
+        console.log(`[API] 成功从服务端同步 ${data.length} 条已审核福利`);
+      }
+    }
+  } catch (err) {
+    console.info('[API] 处于静态或离线模式，已使用本地预置福利数据');
+  }
+}
+
 function boot() {
+  if (typeof setLang === 'function' && typeof getCurrentLang === 'function') {
+    setLang(getCurrentLang());
+  }
   $('#metaUpdated').textContent = SITE_META.updatedAt;
   $('#footDate').textContent = SITE_META.updatedAt;
   renderCountdowns();
@@ -627,6 +757,7 @@ function boot() {
   initForm();
   initEvents();
   animateCounters();
+  syncRemoteDeals();
 }
 
 document.addEventListener('DOMContentLoaded', boot);

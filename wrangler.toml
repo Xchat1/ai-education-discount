@@ -1,0 +1,19 @@
+name = "ai-education-discount"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "."
+
+# Cloudflare D1 边缘数据库绑定
+# 使用前请执行: wrangler d1 create ai_deals_db 并将生成的 database_id 填入下方
+[[d1_databases]]
+binding = "DB"
+database_name = "ai_deals_db"
+database_id = "49074bf6-1f5c-45a8-a410-a558f5930405"
+
+[vars]
+# 默认管理员密码（可在此修改；生产环境更推荐在 Cloudflare 控制台添加为 Secret）
+ADMIN_PASSWORD = "admin123456"
+
+# 提示：你也可以使用命令行直接设置加密密文字段（无需明文提交到 Git 仓库）：
+# npx wrangler pages secret put ADMIN_PASSWORD
+

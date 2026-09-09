@@ -10,6 +10,7 @@
 ## ✨ 特性
 
 - **状态可视化**：🟢 强烈建议 · 🟡 有条件/地区限制 · 🔵 学生折扣 · ⚪ 免费教育版 · 🔴 暂无稳定学生计划
+- **🌐 国际化支持 (i18n)**：默认中文 (`zh-CN`)，支持一键无刷新无感切换至英文 (`EN`)，本地存储记忆用户首选语言
 - **多维筛选**：品类 / 优先级（S·A·B）/ 中国大陆可用性 / 关键词搜索 / 四种排序
 - **🇨🇳 大陆专区**：一键筛出无需 SheerID、无需海外网络、校园邮箱或学生认证即可申请的福利
 - **动态倒计时**：自动取最近 3 个截止日期，临期活动优先预警
@@ -18,32 +19,108 @@
 - **支持提交**：可在站内提交新发现的福利，本地保存并支持导出 JSON
 - **纯静态**：零依赖、零构建，双击 `index.html` 即可运行
 
-## 🚀 快速开始
+## 🚀 部署与运行方式
+
+本项目同时支持 **纯静态本地运行**、**Docker 容器化部署** 以及 **Cloudflare (CF Pages + D1) 边缘无服务化部署**，并内置了完整的**管理审核后台**。
+
+### 方式一：Docker 一键部署（推荐自建服务器 / NAS）
+
+项目内置了轻量 Node 22 镜像与内置持久化 SQLite 数据库，无任何复杂构建依赖：
 
 ```bash
-# 方式一：直接打开
-open index.html
+# 启动服务（默认端口 3000，后台运行）
+docker compose up -d
 
-# 方式二：本地服务（推荐，避免个别浏览器 file:// 限制）
-python3 -m http.server 8848
-# 然后访问 http://127.0.0.1:8848
+# 查看运行日志
+docker compose logs -f
 ```
 
-无需 npm install，无需构建步骤。
+* **前台网址**：`http://localhost:3000`
+* **管理审核后台**：`http://localhost:3000/admin.html`（或 `http://localhost:3000/admin`）
+* **默认管理员密码**：`admin123456`（请在 `docker-compose.yml` 中通过环境变量 `ADMIN_PASSWORD` 修改）
+* **数据持久化**：数据库自动保存在宿主机 `./data/deals.db`，容器销毁更新数据不丢失。
+
+---
+
+### 方式二：Cloudflare Pages + D1 边缘部署（推荐全托管 0 成本）
+
+利用 Cloudflare Pages Functions + D1 边缘数据库，享受全球毫秒级 CDN 分发与永久免费额度：
+
+1. **创建 D1 数据库**：
+   ```bash
+   npx wrangler d1 create ai_deals_db
+   ```
+   复制终端输出的 `database_id`，粘贴到项目 [`wrangler.toml`](file:///Users/admin/AllProjects/ai-education-discount/wrangler.toml) 的 `database_id` 处。
+
+2. **初始化 D1 数据库表结构与预置 40 条数据**：
+   ```bash
+   npx wrangler d1 execute ai_deals_db --file=schema.sql --remote
+   ```
+
+3. **部署至 Cloudflare Pages**：
+   ```bash
+   npx wrangler pages deploy .
+   ```
+
+4. **配置管理员密码**：
+   在 Cloudflare 控制台 -> **Workers & Pages** -> 你的项目 -> **Settings** -> **Environment variables** 中添加：
+   * 变量名：`ADMIN_PASSWORD`
+   * 变量值：你的专属管理员强密码
+
+---
+
+### 方式三：本地纯静态开发 / 离线模式
+
+无需任何后端与数据库，直接打开即可：
+```bash
+open index.html
+# 或启动简单 HTTP 服务
+python3 -m http.server 8848
+```
+
+---
+
+## ⚙️ 管理审核系统与工作流
+
+1. **用户前台提交**：访问前台底部的「提交福利」表单填报新福利，数据将通过 `/api/submit` 异步推入待审核队列（离线模式下自动降级为保存在用户本地浏览器）。
+2. **管理员登录**：进入 `/admin.html`，输入管理员密码完成鉴权。
+3. **审核与管理**：
+   * ⏳ **待审核队列**：查看提交人联系方式、申请链接与权益说明，支持 **一键通过上线**、**编辑并发布**、**驳回** 或 **删除**。
+   * 🟢 **已上线福利**：支持检索、编辑修改已有字段、随时下线。
+   * ➕ **手动直录**：点击右上角「手动录入新福利」即可绕过审核直接发布。
+   * 🔄 **前台全自动热同步**：一旦审核通过，前台页面无需重新编译，动态无缝同步展示最新福利！
+
+---
 
 ## 📁 目录结构
 
 ```
 ai-education-discount/
-├── index.html              # 页面结构
+├── index.html              # 前台页面结构
+├── admin.html              # ⭐ 专属管理审核后台
+├── server.js               # ⭐ Node.js / Docker 核心服务端（内置 SQLite 与 API）
+├── Dockerfile              # Docker 容器构建文件
+├── docker-compose.yml      # Docker 编排配置（含持久化卷挂载）
+├── wrangler.toml           # Cloudflare Pages 配置文件
+├── schema.sql              # D1 / SQLite 数据库建表与 40+ 条初始种子数据
+├── functions/              # ⭐ Cloudflare Pages Functions 边缘 API
+│   ├── _utils.js           # 鉴权、响应、格式化公共函数
+│   └── api/
+│       ├── deals.js        # 公开接口：获取已审核上线福利
+│       ├── submit.js       # 公开接口：用户提交福利
+│       └── admin/          # 管理员接口：login, deals, review
 ├── assets/
-│   ├── css/style.css       # 视觉样式（深色玻璃拟态 + 极光背景）
+│   ├── css/
+│   │   ├── style.css       # 前台视觉样式（深色玻璃拟态 + 极光背景）
+│   │   └── admin.css       # 管理审核后台专用样式
 │   └── js/
-│       ├── data.js         # ⭐ 数据层：所有福利、路线图、避坑提醒
-│       └── app.js          # 交互逻辑：渲染、筛选、倒计时、图表、提交
+│       ├── data.js         # 前端预置兜底数据（40 条全量福利）
+│       ├── deals-en.js     # 🌐 全量 40 条福利的英文翻译字典
+│       ├── i18n.js         # 🌐 国际化多语言核心模块（双语字典与切换引擎）
+│       ├── app.js          # 前台交互：渲染、筛选、图表、异步提交
+│       └── admin.js        # 后台逻辑：鉴权、KPI 统计、列表过滤、审核操作
 ├── LICENSE                 # MIT
-├── README.md
-└── .gitignore
+└── README.md
 ```
 
 ## 📝 新增或修改一条福利

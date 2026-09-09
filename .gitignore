@@ -32,3 +32,9 @@ npm-debug.log*
 *.tmp
 *.temp
 __pycache__/
+
+# 本地数据与 Cloudflare
+data/*.db*
+data/*.sqlite*
+.wrangler/
+
