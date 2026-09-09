@@ -10,10 +10,8 @@ binding = "DB"
 database_name = "ai_deals_db"
 database_id = "49074bf6-1f5c-45a8-a410-a558f5930405"
 
-[vars]
-# 默认管理员密码（可在此修改；生产环境更推荐在 Cloudflare 控制台添加为 Secret）
-ADMIN_PASSWORD = "admin123456"
-
-# 提示：你也可以使用命令行直接设置加密密文字段（无需明文提交到 Git 仓库）：
-# npx wrangler pages secret put ADMIN_PASSWORD
+# 环境变量与管理员密码：
+# 已解除 wrangler.toml 锁定，你现在可以在 Cloudflare 控制台直接自由添加、修改或删除环境变量：
+# 控制台路径: Workers & Pages -> ai-education-discount -> Settings -> Environment variables
+# 也可以通过命令行添加加密密文: npx wrangler pages secret put ADMIN_PASSWORD
 
