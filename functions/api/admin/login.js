@@ -12,8 +12,13 @@ export async function onRequestPost(context) {
     const data = await request.json();
     const inputPass = String(data.password || '').trim();
     if (inputPass === adminPass) {
-      // 生成无状态 Token
-      const token = btoa(`${adminPass}:${Date.now()}:${Math.random()}`);
+      // 生成无状态 Token（安全支持各类字符）
+      let token;
+      try {
+        token = btoa(unescape(encodeURIComponent(`${adminPass}:${Date.now()}:${Math.random()}`)));
+      } catch {
+        token = btoa(`${adminPass}:${Date.now()}:${Math.random()}`);
+      }
       return jsonResponse({
         success: true,
         message: '登录成功',

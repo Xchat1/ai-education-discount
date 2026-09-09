@@ -376,9 +376,13 @@ const server = http.createServer(async (req, res) => {
 
       switch (action) {
         case 'approve': {
-          // 审核通过并上线（可同时更新字段）
+          // 审核通过并上线（若带有修改数据，则全量更新字段）
           if (data && typeof data === 'object') {
             const valNum = parseFloat(String(data.value || '').replace(/[^0-9.]/g, '')) || 0;
+            const tags = Array.isArray(data.tags) ? JSON.stringify(data.tags) : (typeof data.tags === 'string' ? JSON.stringify(data.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean)) : null);
+            const highlights = Array.isArray(data.highlights) ? JSON.stringify(data.highlights) : (typeof data.highlights === 'string' ? JSON.stringify(data.highlights.split('\n').map(s => s.trim()).filter(Boolean)) : null);
+            const difficulty = data.difficulty != null ? (Number(data.difficulty) || 3) : null;
+
             db.prepare(`
               UPDATE deals SET
                 name = COALESCE(?, name),
@@ -387,19 +391,37 @@ const server = http.createServer(async (req, res) => {
                 tier = COALESCE(?, tier),
                 status = COALESCE(?, status),
                 value = COALESCE(?, value),
-                value_num = ?,
+                value_num = COALESCE(?, value_num),
                 duration = COALESCE(?, duration),
                 deadline = COALESCE(?, deadline),
                 cn = COALESCE(?, cn),
-                url = COALESCE(?, url),
+                difficulty = COALESCE(?, difficulty),
+                tags = COALESCE(?, tags),
                 summary = COALESCE(?, summary),
+                highlights = COALESCE(?, highlights),
+                notes = COALESCE(?, notes),
+                url = COALESCE(?, url),
                 review_status = 'approved',
                 updated_at = CURRENT_TIMESTAMP
               WHERE id = ?
             `).run(
-              data.name, data.vendor, data.category, data.tier, data.status,
-              data.value, valNum, data.duration, data.deadline, data.cn,
-              data.url, data.summary || data.desc, id
+              data.name ?? null,
+              data.vendor ?? null,
+              data.category ?? null,
+              data.tier ?? null,
+              data.status ?? null,
+              data.value ?? null,
+              valNum || null,
+              data.duration ?? null,
+              data.deadline ?? null,
+              data.cn ?? null,
+              difficulty,
+              tags,
+              data.summary ?? data.desc ?? null,
+              highlights,
+              data.notes ?? null,
+              data.url ?? null,
+              id
             );
           } else {
             db.prepare("UPDATE deals SET review_status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
@@ -426,19 +448,38 @@ const server = http.createServer(async (req, res) => {
         }
 
         case 'update': {
-          // 管理员直接编辑更新
-          if (!data) return sendJson(res, 400, { error: '缺少更新数据' });
+          // 管理员直接编辑更新全部字段
+          if (!data || typeof data !== 'object') return sendJson(res, 400, { error: '缺少更新数据' });
           const valNum = parseFloat(String(data.value || '').replace(/[^0-9.]/g, '')) || 0;
+          const tags = Array.isArray(data.tags) ? JSON.stringify(data.tags) : (typeof data.tags === 'string' ? JSON.stringify(data.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean)) : '[]');
+          const highlights = Array.isArray(data.highlights) ? JSON.stringify(data.highlights) : (typeof data.highlights === 'string' ? JSON.stringify(data.highlights.split('\n').map(s => s.trim()).filter(Boolean)) : (data.summary ? JSON.stringify([data.summary]) : '[]'));
+          const difficulty = Number(data.difficulty) || 3;
+
           db.prepare(`
             UPDATE deals SET
               name = ?, vendor = ?, category = ?, tier = ?, status = ?,
               value = ?, value_num = ?, duration = ?, deadline = ?, cn = ?,
-              url = ?, summary = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+              difficulty = ?, tags = ?, summary = ?, highlights = ?, notes = ?,
+              url = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
           `).run(
-            data.name, data.vendor, data.category, data.tier || 'A', data.status || 'conditional',
-            data.value || '—', valNum, data.duration || '', data.deadline || '', data.cn || 'partial',
-            data.url, data.summary || data.desc || '', data.notes || '', id
+            data.name ?? '',
+            data.vendor ?? '',
+            data.category ?? 'ai',
+            data.tier || 'A',
+            data.status || 'conditional',
+            data.value || '—',
+            valNum,
+            data.duration || '学生期内有效',
+            data.deadline || '',
+            data.cn || 'partial',
+            difficulty,
+            tags,
+            data.summary || data.desc || '',
+            highlights,
+            data.notes || '',
+            data.url ?? '',
+            id
           );
           return sendJson(res, 200, { success: true, message: '更新成功' });
         }
@@ -451,8 +492,8 @@ const server = http.createServer(async (req, res) => {
           const newId = data.id || ('d_' + Date.now().toString(36));
           const valNum = parseFloat(String(data.value || '').replace(/[^0-9.]/g, '')) || 0;
           const brand = JSON.stringify(data.brand || ['#8b7cff', '#38e0c8']);
-          const tags = JSON.stringify(data.tags || []);
-          const highlights = JSON.stringify(data.highlights || (data.summary ? [data.summary] : []));
+          const tags = Array.isArray(data.tags) ? JSON.stringify(data.tags) : (typeof data.tags === 'string' ? JSON.stringify(data.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean)) : '[]');
+          const highlights = Array.isArray(data.highlights) ? JSON.stringify(data.highlights) : (typeof data.highlights === 'string' ? JSON.stringify(data.highlights.split('\n').map(s => s.trim()).filter(Boolean)) : (data.summary ? JSON.stringify([data.summary]) : '[]'));
           const need = JSON.stringify(data.need || { edu: true, sheerid: false, card: false, vpn: false });
 
           db.prepare(`
@@ -467,8 +508,8 @@ const server = http.createServer(async (req, res) => {
             )
           `).run(
             newId,
-            data.name,
-            data.vendor,
+            data.name ?? '',
+            data.vendor ?? '',
             (data.vendor || data.name).slice(0, 2).toUpperCase(),
             brand,
             data.category || 'ai',
@@ -485,7 +526,7 @@ const server = http.createServer(async (req, res) => {
             highlights,
             data.notes || '',
             need,
-            data.url
+            data.url ?? ''
           );
           return sendJson(res, 201, { success: true, message: '新增福利已成功发布上线！', id: newId });
         }

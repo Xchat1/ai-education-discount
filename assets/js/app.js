@@ -238,18 +238,22 @@ function openModal(id) {
             (state.mine ? mineAsDeals().find(x => x.id === id) : null);
   if (!rawD) return;
   const d = typeof localizeDeal === 'function' ? localizeDeal(rawD) : rawD;
-  const st = STATUS_MAP[d.status], cn = CN_MAP[d.cn], c = catOf(d.category);
+  const st = STATUS_MAP[d.status] || STATUS_MAP.conditional;
+  const cn = CN_MAP[d.cn] || CN_MAP.partial;
+  const c = catOf(d.category);
   const catName = typeof t === 'function' ? t('cat.' + d.category) : c.name;
-  const stLabel = typeof t === 'function' ? t('status.' + d.status) : st.label;
-  const cnLabel = typeof t === 'function' ? t('cn.' + d.cn) : cn.label;
+  const stLabel = typeof t === 'function' ? t('status.' + (st === STATUS_MAP[d.status] ? d.status : 'conditional')) : st.label;
+  const cnLabel = typeof t === 'function' ? t('cn.' + (cn === CN_MAP[d.cn] ? d.cn : 'partial')) : cn.label;
   const left = daysLeft(d.deadline);
   const isEn = typeof getCurrentLang === 'function' && getCurrentLang() === 'en';
+  const diff = Math.max(1, Math.min(5, Number(d.difficulty) || 3));
 
+  const need = d.need || { edu: true, sheerid: false, card: false, vpn: false };
   const req = [
-    [typeof t === 'function' ? t('card.needEdu') : '学校邮箱 / 学生身份', d.need.edu],
-    [typeof t === 'function' ? t('card.needSheerid') : 'SheerID 认证', d.need.sheerid],
-    [typeof t === 'function' ? t('card.needCard') : '国际信用卡', d.need.card],
-    [typeof t === 'function' ? t('card.needVpn') : '海外网络环境', d.need.vpn]
+    [typeof t === 'function' ? t('card.needEdu') : '学校邮箱 / 学生身份', !!need.edu],
+    [typeof t === 'function' ? t('card.needSheerid') : 'SheerID 认证', !!need.sheerid],
+    [typeof t === 'function' ? t('card.needCard') : '国际信用卡', !!need.card],
+    [typeof t === 'function' ? t('card.needVpn') : '海外网络环境', !!need.vpn]
   ];
 
   const neededPrefix = typeof t === 'function' ? t('modal.needed') : '需要 · ';
@@ -284,7 +288,7 @@ function openModal(id) {
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <span class="tag" style="color:${st.color};border-color:${st.color}44;background:${st.color}18">${st.emoji} ${stLabel}</span>
       <span class="tag" style="color:${cn.color};border-color:${cn.color}44;background:${cn.color}18">${cnRegionText}</span>
-      <span class="tag">${diffText}${'●'.repeat(d.difficulty)}${'○'.repeat(5 - d.difficulty)}</span>
+      <span class="tag">${diffText}${'●'.repeat(diff)}${'○'.repeat(5 - diff)}</span>
     </div>
 
     <div class="modal-h4">${perksTitle}</div>
@@ -464,12 +468,21 @@ function animateCounters() {
 
 /* ================= 提交表单 ================= */
 function initForm() {
+  const prevCat = $('#fCategory')?.value || 'ai';
+  const prevStatus = $('#fStatus')?.value || 'conditional';
+  const prevCn = $('#fCn')?.value || 'partial';
+
   $('#fCategory').innerHTML = CATEGORIES.filter(c => c.id !== 'all')
     .map(c => `<option value="${c.id}">${c.icon} ${typeof t === 'function' ? t('cat.' + c.id) : c.name}</option>`).join('');
+  if ($('#fCategory')) $('#fCategory').value = prevCat;
+
   $('#fStatus').innerHTML = Object.entries(STATUS_MAP)
     .map(([k, v]) => `<option value="${k}">${v.emoji} ${typeof t === 'function' ? t('status.' + k) : v.label}</option>`).join('');
+  if ($('#fStatus')) $('#fStatus').value = prevStatus;
+
   $('#fCn').innerHTML = Object.entries(CN_MAP)
     .map(([k, v]) => `<option value="${k}">${typeof t === 'function' ? t('cn.' + k) : v.label}</option>`).join('');
+  if ($('#fCn')) $('#fCn').value = prevCn;
 
   renderMine();
 
@@ -710,6 +723,7 @@ function initEvents() {
     renderCountdowns();
     initForm();
     saveMine(loadMine());
+    animateCounters();
   });
 
   // 滚动入场

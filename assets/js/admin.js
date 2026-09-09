@@ -76,11 +76,21 @@ function showLogin(show) {
 
 // 初始化分类与状态下拉框
 function initSelectOptions() {
+  const isEn = typeof getCurrentLang === 'function' && getCurrentLang() === 'en';
   const cats = CATEGORIES.filter(c => c.id !== 'all');
+
+  const prevCat = $('#catFilter')?.value || 'all';
+  const prevMCat = $('#mCategory')?.value || 'ai';
+  const prevMStatus = $('#mStatus')?.value || 'hot';
+  const prevMCn = $('#mCn')?.value || 'partial';
+  const prevMTier = $('#mTier')?.value || 'A';
+  const prevMDiff = $('#mDifficulty')?.value || '3';
+
   $('#mCategory').innerHTML = cats.map(c => {
     const name = typeof t === 'function' ? t('cat.' + c.id) : c.name;
     return `<option value="${c.id}">${c.icon} ${name}</option>`;
   }).join('');
+  if ($('#mCategory')) $('#mCategory').value = prevMCat;
   
   const allCatsText = typeof t === 'function' ? t('admin.allCats') : '全部类别';
   $('#catFilter').innerHTML = `<option value="all">${allCatsText}</option>` + 
@@ -88,18 +98,49 @@ function initSelectOptions() {
       const name = typeof t === 'function' ? t('cat.' + c.id) : c.name;
       return `<option value="${c.id}">${c.icon} ${name}</option>`;
     }).join('');
+  if ($('#catFilter')) $('#catFilter').value = prevCat;
 
   $('#mStatus').innerHTML = Object.entries(STATUS_MAP)
     .map(([k, v]) => {
       const lbl = typeof t === 'function' ? t('status.' + k) : v.label;
       return `<option value="${k}">${v.emoji} ${lbl}</option>`;
     }).join('');
+  if ($('#mStatus')) $('#mStatus').value = prevMStatus;
 
   $('#mCn').innerHTML = Object.entries(CN_MAP)
     .map(([k, v]) => {
       const lbl = typeof t === 'function' ? t('cn.' + k) : v.label;
       return `<option value="${k}">${lbl}</option>`;
     }).join('');
+  if ($('#mCn')) $('#mCn').value = prevMCn;
+
+  const tierEl = $('#mTier');
+  if (tierEl) {
+    tierEl.innerHTML = `
+      <option value="S">Tier S (${isEn ? 'Must-Have' : '必申神券'})</option>
+      <option value="A">Tier A (${isEn ? 'Recommended' : '推荐申请'})</option>
+      <option value="B">Tier B (${isEn ? 'Optional' : '备选/一般'})</option>
+    `;
+    tierEl.value = prevMTier;
+  }
+
+  const diffEl = $('#mDifficulty');
+  if (diffEl) {
+    diffEl.innerHTML = isEn ? `
+      <option value="1">1 Star (Instant approval / Very easy)</option>
+      <option value="2">2 Stars (Edu email required)</option>
+      <option value="3">3 Stars (SheerID / Document verification)</option>
+      <option value="4">4 Stars (Strict manual review)</option>
+      <option value="5">5 Stars (High barrier / Region restricted)</option>
+    ` : `
+      <option value="1">1 星 (极其容易/秒过)</option>
+      <option value="2">2 星 (校邮即可)</option>
+      <option value="3">3 星 (SheerID / 学信网)</option>
+      <option value="4">4 星 (严格人工审核)</option>
+      <option value="5">5 星 (极高门槛/锁区)</option>
+    `;
+    diffEl.value = prevMDiff;
+  }
 }
 
 // 加载审核列表数据
@@ -255,6 +296,7 @@ function renderList(deals) {
 }
 
 function bindCardActions() {
+  const isEn = typeof getCurrentLang === 'function' && getCurrentLang() === 'en';
   $$('#auditList button[data-action]').forEach(btn => {
     btn.onclick = async () => {
       const action = btn.dataset.action;
@@ -267,7 +309,10 @@ function bindCardActions() {
       }
 
       if (action === 'delete') {
-        if (!confirm(`确定彻底删除【${targetDeal?.name || id}】？删除后不可恢复。`)) return;
+        const confirmMsg = isEn
+          ? `Are you sure you want to permanently delete [${targetDeal?.name || id}]? This cannot be undone.`
+          : `确定彻底删除【${targetDeal?.name || id}】？删除后不可恢复。`;
+        if (!confirm(confirmMsg)) return;
       }
 
       try {
@@ -275,7 +320,7 @@ function bindCardActions() {
           method: 'POST',
           body: JSON.stringify({ id, action })
         });
-        toast(res.message || '操作成功');
+        toast(res.message || (isEn ? 'Operation successful' : '操作成功'));
         loadDeals();
       } catch (err) {
         alert(err.message);
@@ -287,7 +332,12 @@ function bindCardActions() {
 // 模态弹窗表单逻辑
 function openModal(deal = null) {
   const isEdit = !!deal;
-  $('#modalTitle').textContent = isEdit ? `编辑福利：${deal.name}` : '手动录入新 AI 福利';
+  const isEn = typeof getCurrentLang === 'function' && getCurrentLang() === 'en';
+
+  $('#modalTitle').textContent = isEdit
+    ? (isEn ? `Edit Deal: ${deal.name}` : `编辑福利：${deal.name}`)
+    : (isEn ? 'Add New AI Student Deal' : '手动录入新 AI 福利');
+
   $('#mId').value = isEdit ? deal.id : '';
   $('#mName').value = isEdit ? deal.name : '';
   $('#mVendor').value = isEdit ? deal.vendor : '';
@@ -295,17 +345,20 @@ function openModal(deal = null) {
   $('#mTier').value = isEdit ? (deal.tier || 'A') : 'A';
   $('#mStatus').value = isEdit ? deal.status : 'hot';
   $('#mValue').value = isEdit ? deal.value : '';
-  $('#mDuration').value = isEdit ? deal.duration : '学生期内有效';
+  $('#mDuration').value = isEdit ? deal.duration : (isEn ? 'Valid during enrollment' : '学生期内有效');
   $('#mDeadline').value = isEdit ? (deal.deadline || '') : '';
   $('#mCn').value = isEdit ? deal.cn : 'partial';
   $('#mDifficulty').value = isEdit ? (deal.difficulty || 3) : 3;
   $('#mUrl').value = isEdit ? deal.url : '';
-  $('#mTags').value = isEdit ? (deal.tags || []).join(', ') : '';
+  $('#mTags').value = isEdit ? (Array.isArray(deal.tags) ? deal.tags.join(', ') : '') : '';
   $('#mSummary').value = isEdit ? (deal.summary || deal.desc || '') : '';
-  $('#mHighlights').value = isEdit ? (deal.highlights || []).join('\n') : '';
+  $('#mHighlights').value = isEdit ? (Array.isArray(deal.highlights) ? deal.highlights.join('\n') : '') : '';
   $('#mNotes').value = isEdit ? (deal.notes || '') : '';
 
-  $('#btnModalSubmit').textContent = isEdit ? '保存并发布' : '直接录入上线';
+  $('#btnModalSubmit').textContent = isEdit
+    ? (isEn ? 'Save & Publish' : '保存并发布')
+    : (isEn ? 'Publish Immediately' : '直接录入上线');
+
   $('#dealModal').classList.add('show');
 }
 
@@ -322,6 +375,7 @@ function initModalEvents() {
     e.preventDefault();
     const id = $('#mId').value;
     const isEdit = !!id;
+    const isEn = typeof getCurrentLang === 'function' && getCurrentLang() === 'en';
 
     const tags = $('#mTags').value.split(/[,，]/).map(t => t.trim()).filter(Boolean);
     const highlights = $('#mHighlights').value.split('\n').map(h => h.trim()).filter(Boolean);
@@ -333,7 +387,7 @@ function initModalEvents() {
       tier: $('#mTier').value,
       status: $('#mStatus').value,
       value: $('#mValue').value.trim() || '—',
-      duration: $('#mDuration').value.trim() || '学生期内有效',
+      duration: $('#mDuration').value.trim() || (isEn ? 'Valid during enrollment' : '学生期内有效'),
       deadline: $('#mDeadline').value,
       cn: $('#mCn').value,
       difficulty: parseInt($('#mDifficulty').value, 10),
@@ -351,14 +405,14 @@ function initModalEvents() {
           method: 'POST',
           body: JSON.stringify({ id, action: 'approve', data })
         });
-        toast('福利已更新并发布上线！');
+        toast(isEn ? 'Deal updated and published!' : '福利已更新并发布上线！');
       } else {
         // 直接录入新条目
         await apiRequest('/api/admin/review', {
           method: 'POST',
           body: JSON.stringify({ action: 'create', data })
         });
-        toast('新福利已成功创建并上线！');
+        toast(isEn ? 'New deal created and published!' : '新福利已成功创建并上线！');
       }
       closeModal();
       loadDeals();

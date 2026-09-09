@@ -75,10 +75,16 @@ export function verifyAdminAuth(request, env) {
   if (!token) return false;
 
   try {
-    const decoded = atob(token);
+    const decoded = decodeURIComponent(escape(atob(token)));
     const [pass] = decoded.split(':');
     return pass === adminPass;
   } catch {
-    return token === adminPass;
+    try {
+      const decoded = atob(token);
+      const [pass] = decoded.split(':');
+      return pass === adminPass;
+    } catch {
+      return token === adminPass;
+    }
   }
 }
